@@ -15,6 +15,7 @@ const (
 	PuzzlesRead   = "puzzles:read"
 	PuzzlesUpdate = "puzzles:update"
 	PuzzlesDelete = "puzzles:delete"
+	UsersCreate   = "users:create"
 	UsersRead     = "users:read"
 	UsersUpdate   = "users:update"
 	UsersDelete   = "users:delete"
@@ -25,6 +26,7 @@ var StandardPermissions = Permissions{
 	PuzzlesRead,
 	PuzzlesUpdate,
 	PuzzlesDelete,
+	UsersCreate,
 	UsersRead,
 	UsersUpdate,
 	UsersDelete,
@@ -43,7 +45,7 @@ type PermissionModel struct {
 	DB *pgxpool.Pool
 }
 
-func (m PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
+func (m PermissionModel) GetAllForUser(userID int) (Permissions, error) {
 	query := `
 		SELECT permissions.code
 		FROM permissions
@@ -75,7 +77,7 @@ func (m PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 	return permissions, nil
 }
 
-func (m PermissionModel) AddForUser(userID int64, codes ...string) error {
+func (m PermissionModel) AddForUser(userID int, codes ...string) error {
 	query := `
 		INSERT INTO users_permissions
 		SELECT $1, permissions.id

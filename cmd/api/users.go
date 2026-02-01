@@ -28,7 +28,7 @@ func (app *application) addUserHandler(w http.ResponseWriter, r *http.Request) {
 		Email:       input.Email,
 		FullName:    input.FullName,
 		DisplayName: input.DisplayName,
-		Activated:   false,
+		Activated:   true,
 	}
 	err = user.Password.Set(input.Password)
 	if err != nil {
@@ -48,7 +48,7 @@ func (app *application) addUserHandler(w http.ResponseWriter, r *http.Request) {
 			v.AddError("email", "a user with this email address already exists")
 			app.failedValidationResponse(w, r, v.Errors)
 		case errors.Is(err, data.ErrDuplicateDisplayName):
-			v.AddError("display_name", "this display name is already in use at your company")
+			v.AddError("display_name", "this display name is already in use")
 			app.failedValidationResponse(w, r, v.Errors)
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -72,9 +72,13 @@ func (app *application) addUserHandler(w http.ResponseWriter, r *http.Request) {
 func (app *application) getCurrentUserHandler(w http.ResponseWriter, r *http.Request) {
 	// get a user by id
 	user := app.contextGetUser(r)
-
-	err := app.writeJSON(w, http.StatusOK,
-		envelope{"user": user}, nil)
+	permissions, err := app.models.Permissions.GetAllForUser(user.ID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+	err = app.writeJSON(w, http.StatusOK,
+		envelope{"user": user, "permissions": permissions}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 	}
@@ -115,6 +119,7 @@ func (app *application) changePasswordHandler(w http.ResponseWriter, r *http.Req
 }
 
 func (app *application) updateUserHandler(w http.ResponseWriter, r *http.Request) {
+	// update the current user's profile
 	user := app.contextGetUser(r)
 	var input struct {
 		FullName    string `json:"full_name"`

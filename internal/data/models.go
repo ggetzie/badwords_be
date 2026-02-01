@@ -15,6 +15,7 @@ type Models struct {
 	Users       UserModel
 	Permissions PermissionModel
 	Tokens      TokenModel
+	Puzzles     PuzzleModel
 }
 
 func NewModels(db *pgxpool.Pool) Models {
@@ -22,5 +23,6 @@ func NewModels(db *pgxpool.Pool) Models {
 		Users:       UserModel{DB: db},
 		Tokens:      TokenModel{DB: db},
 		Permissions: PermissionModel{DB: db},
+		Puzzles:     PuzzleModel{DB: db},
 	}
 }

@@ -20,7 +20,7 @@ const (
 type Token struct {
 	Plaintext string    `json:"token"`
 	Hash      []byte    `json:"-"`
-	UserID    int64     `json:"-"`
+	UserID    int       `json:"-"`
 	Expiry    time.Time `json:"expiry"`
 	Scope     string    `json:"-"`
 }
@@ -29,7 +29,7 @@ type TokenModel struct {
 	DB *pgxpool.Pool
 }
 
-func generateToken(userID int64, ttl time.Duration, scope string) (*Token, error) {
+func generateToken(userID int, ttl time.Duration, scope string) (*Token, error) {
 	token := &Token{
 		UserID: userID,
 		Expiry: time.Now().Add(ttl),
@@ -53,7 +53,7 @@ func ValidateTokenPlaintext(v *validator.Validator, input string) {
 	v.Check(len(input) == 26, "token", "must be 26 bytes long")
 }
 
-func (m TokenModel) New(userID int64, ttl time.Duration, scope string) (*Token, error) {
+func (m TokenModel) New(userID int, ttl time.Duration, scope string) (*Token, error) {
 
 	token, err := generateToken(userID, ttl, scope)
 	if err != nil {
@@ -77,7 +77,7 @@ func (m TokenModel) Insert(token *Token) error {
 	return err
 }
 
-func (m TokenModel) DeleteAllForUser(scope string, userID int64) error {
+func (m TokenModel) DeleteAllForUser(scope string, userID int) error {
 	query := `
 		DELETE FROM tokens
 		WHERE scope = $1 AND user_id = $2`

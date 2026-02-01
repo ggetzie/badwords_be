@@ -20,40 +20,22 @@ confirm:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	@go run ./cmd/api/ -db-dsn=${DATABASE_URL} -mail-sender=${SERVER_EMAIL} \
-	-aws-access-key-id=${AWS_ACCESS_KEY_ID} -aws-secret-access-key=${AWS_SECRET_ACCESS_KEY} \
-	-openai-key="${OPENAI_API_KEY}" -openai-endpoint="${OPENAI_ENDPOINT}" -openai-model="${OPENAI_MODEL}" \
-	-cors-trusted-origins="${CORS_TRUSTED_ORIGINS}" -proxy-url="${PROXY_URL}"
+	@go run ./cmd/api/ -db-dsn=${DATABASE_URL} -cors-trusted-origins="${CORS_TRUSTED_ORIGINS}"
 
-## run/vectorize: run the cmd/cli/vectorize application
-.PHONY: run/vectorize 
-run/vectorize:
-	@go run ./cmd/cli/vectorize/ -db-dsn="${DATABASE_URL}" -openai-key="${OPENAI_API_KEY}" -proxy-url="${PROXY_URL}"
+## run/bw_chpwd: Change a user's password using the bw_chpwd command-line application
+.PHONY: run/bw_chpwd
+run/bw_chpwd:
+	@go run ./cmd/cli/bw_chpwd/ -db-dsn="${DATABASE_URL}" -email="${EMAIL}" -new-password=${NEW_PW}
 
-## run/snpw: run the cmd/snpw application
-.PHONY: run/snpw
-run/snpw:
-	@go run ./cmd/cli/snpw/ -db-dsn="${DATABASE_URL}" -email="${EMAIL}" -new-password=${NEW_PW}
-
-## run/eg_proj_created: run the cmd/cli/engenium/projectCreated
-.PHONY: run/eg_proj_created
-run/eg_proj_created:
-	@go run ./cmd/cli/engenium/projectCreated/
-
-## run/cors/preflight: run the	cmd/cors/preflight application
-.PHONY: run/cors/preflight
-run/cors/preflight:
-	@go run ./cmd/cors/preflight/ -email="${TEST_USER_EMAIL}" -password="${TEST_USER_PASSWORD}"
-
-## run/cors/simple: run the	cmd/cors/simple application
-.PHONY: run/cors/simple
-run/cors/simple:
-	@go run ./cmd/cors/simple/ -addr=":9001"
+## run/bw_adduser: add a new user using the bw_adduser command-line application
+.PHONY: run/bw_adduser
+run/bw_adduser:
+	@go run ./cmd/cli/bw_adduser/ -db-dsn="${DATABASE_URL}" -email="${EMAIL}" -password="${PASSWORD}" -full-name="${FULL_NAME}" -display-name="${DISPLAY_NAME}"
 
 ## run/token: generate a test Authentication token and save it to TOKEN
 .PHONY: run/token
 run/token:
-	TOKEN=$(shell curl -d '{"email":"${TEST_USER_EMAIL}","password":"${TEST_USER_PASSWORD}"}' http://localhost:8000/v1/tokens/authentication | jq -r .authentication_token.token)
+	curl -d "{\"email\":\"${TEST_USER_EMAIL}\",\"password\":\"${TEST_USER_PASSWORD}\"}" http://localhost:8000/v1/tokens/authentication
 
 ######################################################################
 #                                                                    #
@@ -94,22 +76,18 @@ db/migrate/version:
 ## db/psql: connect to the database using psql
 .PHONY: db/psql
 db/psql:
+	@echo "Connecting to database ${DATABASE_URL}..."
 	@psql ${DATABASE_URL}	
 
 ## db/backup: backup the database
 .PHONY: db/backup
 db/backup:
-	@pg_dump ${DATABASE_URL} > backup/supernotes_`date +%s`.pgsql
+	@pg_dump ${DATABASE_URL} > backup/badwords_`date +%s`.pgsql
 
-## db/random/keynote: select a random keynote from the database
-.PHONY: db/random/keynote
-db/random/keynote:
-	@psql ${DATABASE_URL} -c "SELECT * FROM keynotes ORDER BY RANDOM() LIMIT 1"
-
-## db/random/project: select a random project from the database
-.PHONY: db/random/project
-db/random/project:
-	@psql ${DATABASE_URL} -c "SELECT p.id, p.number, p.name FROM projects p INNER JOIN project_keynotes pk ON p.id = pk.project_id ORDER BY random() LIMIT 1"	
+## db/random/puzzle: select a random puzzle from the database
+.PHONY: db/random/puzzle
+db/random/puzzle:
+	@psql ${DATABASE_URL} -c "SELECT * FROM puzzles ORDER BY RANDOM() LIMIT 1"
 
 ## db/script: run a SQL script file with NAME from the scripts directory against the database
 .PHONY: db/script 
@@ -144,19 +122,20 @@ build/api:
 	@echo "Building cmd/api..."
 	@go build -ldflags='-s' -o=./bin/api ./cmd/api/
 	GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/api ./cmd/api/
+	
+## build/bw_chpwd: build the cmd/chpwd application
+.PHONY: build/bw_chpwd
+build/bw_chpwd:
+	@echo "Building cmd/chpwd..."
+	@go build -ldflags='-s' -o=./bin/bw_chpwd ./cmd/cli/bw_chpwd/
+	GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/bw_chpwd ./cmd/cli/bw_chpwd/
 
-## build/snpw: build the cmd/snpw application
-.PHONY: build/snpw
-build/snpw:
-	@echo "Building cmd/snpw..."
-	@go build -ldflags='-s' -o=./bin/snpw ./cmd/cli/snpw/
-	GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/snpw ./cmd/cli/snpw/
-
-## build/eg_sync: build the cmd/cli/engenium/sync application
-.PHONY: build/eg_sync
-build/eg_sync:
-	@echo "Building cmd/cli/engenium/sync..."
-	GOOS=windows GOARCH=amd64 go build -ldflags='-s' -o=./bin/windows_amd64/eg_sync ./cmd/cli/engenium/sync/
+## build/bw_adduser: build the cmd/adduser application
+.PHONY: build/bw_adduser
+build/bw_adduser:
+	@echo "Building cmd/adduser..."
+	@go build -ldflags='-s' -o=./bin/bw_adduser ./cmd/cli/bw_adduser/
+	GOOS=linux GOARCH=amd64 go build -ldflags='-s' -o=./bin/linux_amd64/bw_adduser ./cmd/cli/bw_adduser/	
 
 
 ######################################################################
@@ -165,78 +144,57 @@ build/eg_sync:
 #                                                                    #
 ######################################################################	
 
-production_host_ip = ${SUPERNOTES_IP}
-SN_SSH = ssh -i ${SUPERNOTES_KEY}
-SN_RSYNC = rsync -e "ssh -i ${SUPERNOTES_KEY}"
+production_host_ip = ${BADWORDS_IP}
+BW_SSH = ssh -i ${BADWORDS_KEY}
+BW_RSYNC = rsync -e "ssh -i ${BADWORDS_KEY}"
 ## production/connect: connect to the production server
 .PHONY: production/connect
 production/connect:
-	@$(SN_SSH) supernotes_user@${production_host_ip}
+	@$(BW_SSH) badwords_user@${production_host_ip}
 
 ## production/deploy/api: deploy the cmd/api application to the production server
 .PHONY: production/deploy/api
 production/deploy/api: build/api
-	$(SN_RSYNC) -P ./bin/linux_amd64/api supernotes_user@${production_host_ip}:~
-	$(SN_RSYNC) -rP --delete ./migrations supernotes_user@${production_host_ip}:~
-	$(SN_RSYNC) -P ./remote/api/production/supernotes.service supernotes_user@${production_host_ip}:~
-	ssh -t -i ${SUPERNOTES_KEY} supernotes_user@${production_host_ip} '\
-	migrate -path ~/migrations -database $$SUPERNOTES_DB_DSN up \
-	&& sudo mv ~/supernotes.service /etc/systemd/system/supernotes.service \
-	&& sudo systemctl enable supernotes \
-	&& sudo systemctl restart supernotes'
+	$(BW_RSYNC) -P ./bin/linux_amd64/api badwords_user@${production_host_ip}:~
+	$(BW_RSYNC) -rP --delete ./migrations badwords_user@${production_host_ip}:~
+	$(BW_RSYNC) -P ./remote/api/production/badwords.service badwords_user@${production_host_ip}:~
+	ssh -t -i ${BADWORDS_KEY} badwords_user@${production_host_ip} '\
+	migrate -path ~/migrations -database $$BADWORDS_DB_DSN up \
+	&& sudo mv ~/badwords.service /etc/systemd/system/badwords.service \
+	&& sudo systemctl enable badwords \
+	&& sudo systemctl restart badwords'
 
 ## production/scripts/api: copy scripts to the production server
 .PHONY: production/scripts/api
 production/scripts/api:
-	$(SN_RSYNC) -rP --delete ./scripts supernotes_user@${production_host_ip}:~
+	$(BW_RSYNC) -rP --delete ./scripts badwords_user@${production_host_ip}:~
 	
 
 ## production/update/api: update the cmd/api application on the production server
 .PHONY: production/update/api
 production/update/api: build/api
-	$(SN_RSYNC) -P ./bin/linux_amd64/api supernotes_user@${production_host_ip}:~
-	$(SN_RSYNC) -rP --delete ./migrations supernotes_user@${production_host_ip}:~
-	$(SN_SSH) -t supernotes_user@${production_host_ip} '\
-	migrate -path ~/migrations -database $$SUPERNOTES_DB_DSN up \
-	&& sudo systemctl restart supernotes'
+	$(BW_RSYNC) -P ./bin/linux_amd64/api badwords_user@${production_host_ip}:~
+	$(BW_RSYNC) -rP --delete ./migrations badwords_user@${production_host_ip}:~
+	$(BW_SSH) -t badwords_user@${production_host_ip} '\
+	migrate -path ~/migrations -database $$BADWORDS_DB_DSN up \
+	&& sudo systemctl restart badwords'
 
-## production/deploy/snpw: deploy the cmd/snpw application to the production server
-.PHONY: production/deploy/snpw
-production/deploy/snpw: build/snpw
-	$(SN_RSYNC) -P ./bin/linux_amd64/snpw supernotes_user@${production_host_ip}:~
+## production/deploy/bw_chpwd: deploy the cmd/chpwd application to the production server
+.PHONY: production/deploy/bw_chpwd
+production/deploy/bw_chpwd: build/bw_chpwd
+	$(BW_RSYNC) -P ./bin/linux_amd64/bw_chpwd badwords_user@${production_host_ip}:~
 	
 	
 ## production/setup/api: copy setup scripts to the production server
 .PHONY: production/setup/api
 production/setup/api:
-	$(SN_RSYNC) -rP --delete ./remote/api/setup supernotes_user@${production_host_ip}:~
+	$(BW_RSYNC) -rP --delete ./remote/api/setup badwords_user@${production_host_ip}:~
 
 ## production/nginx/api: copy nginx configuration to the production server
 .PHONY: production/nginx/api
 production/nginx/api:
-	$(SN_RSYNC) -rP --delete ./remote/api/production/nginx_supernotes_80.conf supernotes_user@${production_host_ip}:~/nginx_supernotes.conf
-	$(SN_SSH) -t supernotes_user@${production_host_ip} '\
-	sudo mv ~/nginx_supernotes.conf /etc/nginx/sites-available/nginx_supernotes.conf \
-	&& sudo ln -sf /etc/nginx/sites-available/nginx_supernotes.conf /etc/nginx/sites-enabled/nginx_supernotes.conf \
+	$(BW_RSYNC) -rP --delete ./remote/api/production/nginx_badwords_80.conf badwords_user@${production_host_ip}:~/nginx_badwords.conf
+	$(BW_SSH) -t badwords_user@${production_host_ip} '\
+	sudo mv ~/nginx_badwords.conf /etc/nginx/sites-available/nginx_badwords.conf \
+	&& sudo ln -sf /etc/nginx/sites-available/nginx_badwords.conf /etc/nginx/sites-enabled/nginx_badwords.conf \
 	&& sudo systemctl restart nginx'	
-
-## production/deploy/web: deploy the web frontend to S3
-.PHONY: production/deploy/web
-production/deploy/web:
-	@echo "Deploying web frontend to S3..."
-	cd frontend && npm run build
-	@aws --profile supernotes s3 sync ./frontend/dist/ s3://${AWS_AMPLIFY_S3_BUCKET} --delete 
-	@aws --profile supernotes amplify start-deployment --app-id ${AWS_AMPLIFY_APP_ID} --branch-name main \
-	--source-url s3://${AWS_AMPLIFY_S3_BUCKET} --source-url-type BUCKET_PREFIX
-
-## production/check/web: check the status of the web frontend deployment
-.PHONY: production/check/web
-production/check/web:
-	@aws --profile supernotes amplify get-job --app-id ${AWS_AMPLIFY_APP_ID} --branch-name main --job-id ${JOB}
-
-## production/deploy/eg_sync: build the cmd/cli/engenium/sync application and copy to OneDrive
-.PHONY: production/deploy/eg_sync
-production/deploy/eg_sync: build/eg_sync
-	@cp ./bin/windows_amd64/eg_sync ~/OneDrive\ -\ Engenium\ Group/Documents/keynotes/eg_sync.exe
-	@echo "Done!"
-	

@@ -142,6 +142,27 @@ func (app *application) readStringParam(r *http.Request, key string) (string, er
 	return value, nil
 }
 
+func (app *application) readIntParam(r *http.Request, key string) (int, error) {
+	params := httprouter.ParamsFromContext(r.Context())
+	valueStr := params.ByName(key)
+	if valueStr == "" {
+		return 0, fmt.Errorf("missing %s parameter", key)
+	}
+	value, err := strconv.Atoi(valueStr)
+	if err != nil {
+		return 0, fmt.Errorf("invalid %s parameter", key)
+	}
+	return value, nil
+}
+
+func (app *application) readIDParam(r *http.Request) (int, error) {
+	id, err := app.readIntParam(r, "id")
+	if err != nil || id < 1 {
+		return 0, errors.New("invalid id parameter")
+	}
+	return id, nil
+}
+
 func (app *application) background(fn func()) {
 	app.wg.Add(1)
 	go func() {

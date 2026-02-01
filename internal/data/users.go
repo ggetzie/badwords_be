@@ -15,14 +15,14 @@ import (
 )
 
 type User struct {
-	ID          int64     `json:"id"`
+	ID          int       `json:"id"`
 	Email       string    `json:"email"`
 	Password    password  `json:"-"`
 	CreatedAt   time.Time `json:"created_at"`
-	Activated   bool      `json:"activated"`
 	Version     int       `json:"-"`
 	FullName    string    `json:"full_name"`
 	DisplayName string    `json:"display_name"`
+	Activated   bool      `json:"activated"`
 }
 
 var AnonymousUser = &User{}
@@ -94,15 +94,15 @@ type UserModel struct {
 
 func (m UserModel) Insert(user *User) error {
 	query := `
-		INSERT INTO users (email, password_hash, activated, full_name, display_name)
+		INSERT INTO users (email, password_hash, full_name, display_name, activated	)
 		VALUES ($1, $2, $3, $4, $5)
 		RETURNING id, created_at, version`
 	args := []any{
 		strings.Trim(user.Email, " "),
 		user.Password.hash,
-		user.Activated,
 		strings.Trim(user.FullName, " "),
 		strings.Trim(user.DisplayName, " "),
+		user.Activated,
 	}
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -218,7 +218,7 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string) (*User, error)
 	return &user, nil
 }
 
-func (m UserModel) GetByID(id int64) (*User, error) {
+func (m UserModel) GetByID(id int) (*User, error) {
 	query := `
 		SELECT id, created_at, full_name, display_name, email, password_hash, activated, version
 		FROM users
