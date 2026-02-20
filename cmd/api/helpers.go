@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -37,7 +38,16 @@ func (app *application) readJSON(
 	w http.ResponseWriter, r *http.Request, dst any) error {
 	maxBytes := 1_048_576
 	r.Body = http.MaxBytesReader(w, r.Body, int64(maxBytes))
-
+	if app.config.env == "development" {
+		bodyBytes, err := io.ReadAll(r.Body)
+		if err != nil {
+			return err
+		}
+		bodyStr := string(bodyBytes)
+		app.logger.Debug(fmt.Sprintf("Body length: %d", len(bodyStr)))
+		app.logger.Debug(fmt.Sprintf("Reading JSON body: %s", bodyStr))
+		r.Body = io.NopCloser(bytes.NewReader(bodyBytes))
+	}
 	dec := json.NewDecoder(r.Body)
 	dec.DisallowUnknownFields()
 	err := dec.Decode(dst)

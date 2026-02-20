@@ -36,13 +36,13 @@ func (app *application) listPuzzlesHandler(w http.ResponseWriter, r *http.Reques
 		published1 = true
 		published2 = true
 	}
-	puzzles, err := app.models.Puzzles.List(published1, published2, input.Filters)
+	puzzles, metadata, err := app.models.Puzzles.List(published1, published2, input.Filters)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
 	}
 
-	err = app.writeJSON(w, http.StatusOK, envelope{"puzzles": puzzles}, nil)
+	err = app.writeJSON(w, http.StatusOK, envelope{"puzzles": puzzles, "metadata": metadata}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
 		return
@@ -98,10 +98,11 @@ func (app *application) createPuzzleHandler(w http.ResponseWriter, r *http.Reque
 
 	err := app.readJSON(w, r, &input)
 	if err != nil {
+		app.logger.Debug(fmt.Sprintf("Error reading input: %v", r))
 		app.badRequestResponse(w, r, err)
 		return
 	}
-
+	user := app.contextGetUser(r)
 	puzzle := &data.Puzzle{
 		Title:       input.Title,
 		Description: input.Description,
@@ -109,6 +110,7 @@ func (app *application) createPuzzleHandler(w http.ResponseWriter, r *http.Reque
 		Published:   input.Published,
 		Width:       input.Width,
 		Height:      input.Height,
+		Author:      *user,
 	}
 
 	v := validator.New()
@@ -143,7 +145,7 @@ func (app *application) updatePuzzleHandler(w http.ResponseWriter, r *http.Reque
 
 	puzzle, err := app.models.Puzzles.GetByID(id)
 	if err != nil {
-		switch  err{
+		switch err {
 		case data.ErrRecordNotFound:
 			app.notFoundResponse(w, r)
 		default:

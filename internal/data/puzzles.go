@@ -166,9 +166,9 @@ func GetPublished(publishedVal string) (published1, published2 bool) {
 	return true, true
 }
 
-func (m PuzzleModel) List(published1, published2 bool, filters Filters) ([]*Puzzle, error) {
+func (m PuzzleModel) List(published1, published2 bool, filters Filters) ([]*Puzzle, Metadata, error) {
 	query := `
-		SELECT p.id, p.title, p.description, p.content, p.width, p.height, p.created_at, p.updated_at, p.published, p.version, u.id, u.full_name, u.display_name, u.email
+		SELECT count(*) OVER(), p.id, p.title, p.description, p.content, p.width, p.height, p.created_at, p.updated_at, p.published, p.version, u.id, u.full_name, u.display_name, u.email
 		FROM puzzles p
 		INNER JOIN users u ON p.author_id = u.id
 		WHERE p.published = $1 OR p.published = $2
@@ -178,15 +178,17 @@ func (m PuzzleModel) List(published1, published2 bool, filters Filters) ([]*Puzz
 	defer cancel()
 	rows, err := m.DB.Query(ctx, query, published1, published2, filters.PageSize, filters.offset())
 	if err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
 	defer rows.Close()
 
 	var puzzles []*Puzzle
+	totalRecords := 0
 
 	for rows.Next() {
 		puzzle := &Puzzle{}
 		err := rows.Scan(
+			&totalRecords,
 			&puzzle.ID,
 			&puzzle.Title,
 			&puzzle.Description,
@@ -203,12 +205,13 @@ func (m PuzzleModel) List(published1, published2 bool, filters Filters) ([]*Puzz
 			&puzzle.Author.Email,
 		)
 		if err != nil {
-			return nil, err
+			return nil, Metadata{}, err
 		}
 		puzzles = append(puzzles, puzzle)
 	}
 	if err = rows.Err(); err != nil {
-		return nil, err
+		return nil, Metadata{}, err
 	}
-	return puzzles, nil
+	metadata := calculateMetadata(totalRecords, filters.Page, filters.PageSize)
+	return puzzles, metadata, nil
 }
