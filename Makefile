@@ -20,22 +20,22 @@ confirm:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	@go run ./cmd/api/ -db-dsn=${DATABASE_URL} -cors-trusted-origins="${CORS_TRUSTED_ORIGINS}"
+	@go run ./cmd/api/ -db-dsn=${BW_DATABASE_URL} -cors-trusted-origins="${CORS_TRUSTED_ORIGINS}"
 
 ## run/bw_chpwd: Change a user's password using the bw_chpwd command-line application
 .PHONY: run/bw_chpwd
 run/bw_chpwd:
-	@go run ./cmd/cli/bw_chpwd/ -db-dsn="${DATABASE_URL}" -email="${EMAIL}" -new-password=${NEW_PW}
+	@go run ./cmd/cli/bw_chpwd/ -db-dsn="${BW_DATABASE_URL}" -email="${EMAIL}" -new-password=${NEW_PW}
 
 ## run/bw_adduser: add a new user using the bw_adduser command-line application
 .PHONY: run/bw_adduser
 run/bw_adduser:
-	@go run ./cmd/cli/bw_adduser/ -db-dsn="${DATABASE_URL}" -email="${EMAIL}" -password="${PASSWORD}" -full-name="${FULL_NAME}" -display-name="${DISPLAY_NAME}"
+	@go run ./cmd/cli/bw_adduser/ -db-dsn="${BW_DATABASE_URL}" -email="${EMAIL}" -password="${PASSWORD}" -full-name="${FULL_NAME}" -display-name="${DISPLAY_NAME}"
 
 ## run/token: generate a test Authentication token and save it to TOKEN
 .PHONY: run/token
 run/token:
-	curl -d "{\"email\":\"${TEST_USER_EMAIL}\",\"password\":\"${TEST_USER_PASSWORD}\"}" http://localhost:8000/v1/tokens/authentication
+	curl -d "{\"email\":\"${BW_TEST_USER_EMAIL}\",\"password\":\"${BW_EST_USER_PASSWORD}\"}" http://localhost:8000/v1/tokens/authentication
 
 ######################################################################
 #                                                                    #
@@ -47,13 +47,13 @@ run/token:
 .PHONY: db/migrate/up
 db/migrate/up: confirm
 	@echo "Applying all up database migrations"
-	@migrate -path ./migrations -database ${DATABASE_URL} up
+	@migrate -path ./migrations -database ${BW_DATABASE_URL} up
 
 ## db/migrate/down: apply 1 down database migration
 .PHONY: db/migrate/down
 db/migrate/down: confirm
 	@echo "Applying 1 down migration"
-	@migrate -path ./migrations -database ${DATABASE_URL} down 1
+	@migrate -path ./migrations -database ${BW_DATABASE_URL} down 1
 
 ## db/migrate/create: create a new database migration with NAME
 .PHONY: db/migrate/create
@@ -65,34 +65,34 @@ db/migrate/create:
 .PHONY: db/migrate/force
 db/migrate/force: confirm
 	@echo "Force migrations to ${VERSION}"
-	@migrate -path ./migrations -database ${DATABASE_URL} force ${VERSION}	
+	@migrate -path ./migrations -database ${BW_DATABASE_URL} force ${VERSION}	
 
 ## db/migrate/version: print the current database migration version and status
 .PHONY: db/migrate/version
 db/migrate/version:
 	@echo "Current database migration version: \c"
-	@migrate -path ./migrations -database ${DATABASE_URL} version
+	@migrate -path ./migrations -database ${BW_DATABASE_URL} version
 
 ## db/psql: connect to the database using psql
 .PHONY: db/psql
 db/psql:
-	@echo "Connecting to database ${DATABASE_URL}..."
-	@psql ${DATABASE_URL}	
+	@echo "Connecting to database ${BW_DATABASE_URL}..."
+	@psql ${BW_DATABASE_URL}	
 
 ## db/backup: backup the database
 .PHONY: db/backup
 db/backup:
-	@pg_dump ${DATABASE_URL} > backup/badwords_`date +%s`.pgsql
+	@pg_dump ${BW_DATABASE_URL} > backup/badwords_`date +%s`.pgsql
 
 ## db/random/puzzle: select a random puzzle from the database
 .PHONY: db/random/puzzle
 db/random/puzzle:
-	@psql ${DATABASE_URL} -c "SELECT * FROM puzzles ORDER BY RANDOM() LIMIT 1"
+	@psql ${BW_DATABASE_URL} -c "SELECT * FROM puzzles ORDER BY RANDOM() LIMIT 1"
 
 ## db/script: run a SQL script file with NAME from the scripts directory against the database
 .PHONY: db/script 
 db/script: confirm
-	@psql ${DATABASE_URL} -f ./scripts/${NAME}
+	@psql ${BW_DATABASE_URL} -f ./scripts/${NAME}
 
 ######################################################################
 #                                                                    #
@@ -159,7 +159,7 @@ production/deploy/api: build/api
 	$(BW_RSYNC) -rP --delete ./migrations badwords_user@${production_host_ip}:~
 	$(BW_RSYNC) -P ./remote/api/production/badwords.service badwords_user@${production_host_ip}:~
 	ssh -t -i ${BADWORDS_KEY} badwords_user@${production_host_ip} '\
-	migrate -path ~/migrations -database $$BADWORDS_DB_DSN up \
+	migrate -path ~/migrations -database $$BW_DATABASE_URL up \
 	&& sudo mv ~/badwords.service /etc/systemd/system/badwords.service \
 	&& sudo systemctl enable badwords \
 	&& sudo systemctl restart badwords'
@@ -176,13 +176,18 @@ production/update/api: build/api
 	$(BW_RSYNC) -P ./bin/linux_amd64/api badwords_user@${production_host_ip}:~
 	$(BW_RSYNC) -rP --delete ./migrations badwords_user@${production_host_ip}:~
 	$(BW_SSH) -t badwords_user@${production_host_ip} '\
-	migrate -path ~/migrations -database $$BADWORDS_DB_DSN up \
+	migrate -path ~/migrations -database $$BW_DATABASE_URL up \
 	&& sudo systemctl restart badwords'
 
 ## production/deploy/bw_chpwd: deploy the cmd/chpwd application to the production server
 .PHONY: production/deploy/bw_chpwd
 production/deploy/bw_chpwd: build/bw_chpwd
 	$(BW_RSYNC) -P ./bin/linux_amd64/bw_chpwd badwords_user@${production_host_ip}:~
+
+## production/deploy/bw_adduser: deploy the cmd/adduser application to the production server
+.PHONY: production/deploy/bw_adduser
+production/deploy/bw_adduser: build/bw_adduser
+	$(BW_RSYNC) -P ./bin/linux_amd64/bw_adduser badwords_user@${production_host_ip}:~
 	
 	
 ## production/setup/api: copy setup scripts to the production server

@@ -1,0 +1,25 @@
+[Unit]
+Description=Badwords API Service
+
+After=postgresql.service
+After=network-online.target
+Wants=network-online.target
+
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=exec
+User=badwords_user
+Group=badwords_user
+EnvironmentFile=/etc/environment
+WorkingDirectory=/home/badwords_user
+ExecStart=/home/badwords_user/api -port=8000 \
+	-db-dsn=${BW_DATABASE_URL} -env=production \
+-cors-trusted-origins="${BW_CORS_TRUSTED_ORIGINS}" \
+
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
