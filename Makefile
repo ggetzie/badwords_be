@@ -20,7 +20,7 @@ confirm:
 ## run/api: run the cmd/api application
 .PHONY: run/api
 run/api:
-	@go run ./cmd/api/ -db-dsn=${BW_DATABASE_URL} -cors-trusted-origins="${CORS_TRUSTED_ORIGINS}"
+	@go run ./cmd/api/ -db-dsn=${BW_DATABASE_URL} -cors-trusted-origins="${BW_CORS_TRUSTED_ORIGINS}"
 
 ## run/bw_chpwd: Change a user's password using the bw_chpwd command-line application
 .PHONY: run/bw_chpwd

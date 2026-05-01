@@ -1,0 +1,1 @@
+ALTER TABLE puzzles DROP COLUMN badword;

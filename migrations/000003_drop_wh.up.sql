@@ -1,0 +1,2 @@
+ALTER TABLE puzzles DROP COLUMN width;
+ALTER TABLE puzzles DROP COLUMN height;

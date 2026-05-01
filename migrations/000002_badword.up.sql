@@ -1,0 +1,1 @@
+ALTER TABLE puzzles ADD COLUMN badword TEXT NOT NULL DEFAULT '';

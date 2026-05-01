@@ -27,9 +27,8 @@ type Puzzle struct {
 	ID          int        `json:"id"`
 	Title       string     `json:"title"`
 	Description string     `json:"description"`
+	Badword     string     `json:"badword"`
 	Content     PuzzleData `json:"content"`
-	Width       int        `json:"width"`
-	Height      int        `json:"height"`
 	CreatedAt   time.Time  `json:"created_at"`
 	UpdatedAt   time.Time  `json:"updated_at"`
 	Author      User       `json:"author"`
@@ -48,14 +47,12 @@ func ValidatePuzzle(v *validator.Validator, puzzle *Puzzle) {
 	v.Check(puzzle.Description != "", "description", "must be provided")
 	v.Check(utf8.RuneCountInString(puzzle.Description) <= 1000, "description", "must not be more than 1000 characters long")
 
-	v.Check(puzzle.Width > 0, "width", "must be a positive integer")
-	v.Check(puzzle.Height > 0, "height", "must be a positive integer")
 }
 
 func (m PuzzleModel) Insert(puzzle *Puzzle) error {
 	query := `
-		INSERT INTO puzzles (title, description, content, width, height, author_id, published, created_at, updated_at)
-		VALUES ($1, $2, $3, $4, $5, $6, $7, NOW(), NOW())
+		INSERT INTO puzzles (title, description, badword, content, author_id, published, created_at, updated_at)
+		VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
 		RETURNING id, created_at, updated_at`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -65,9 +62,8 @@ func (m PuzzleModel) Insert(puzzle *Puzzle) error {
 		query,
 		puzzle.Title,
 		puzzle.Description,
+		puzzle.Badword,
 		puzzle.Content,
-		puzzle.Width,
-		puzzle.Height,
 		puzzle.Author.ID,
 		puzzle.Published,
 	).Scan(&puzzle.ID, &puzzle.CreatedAt, &puzzle.UpdatedAt)
@@ -79,7 +75,7 @@ func (m PuzzleModel) Insert(puzzle *Puzzle) error {
 
 func (m PuzzleModel) GetByID(id int) (*Puzzle, error) {
 	query := `
-		SELECT p.id, p.title, p.description, p.content, p.width, p.height, p.created_at, p.updated_at, p.published, p.version, u.id, u.full_name, u.display_name, u.email
+		SELECT p.id, p.title, p.description, p.badword, p.content, p.created_at, p.updated_at, p.published, p.version, u.id, u.full_name, u.display_name, u.email
 		FROM puzzles p
 		INNER JOIN users u ON p.author_id = u.id
 		WHERE p.id = $1`
@@ -93,9 +89,10 @@ func (m PuzzleModel) GetByID(id int) (*Puzzle, error) {
 		&puzzle.ID,
 		&puzzle.Title,
 		&puzzle.Description,
+		&puzzle.Badword,
 		&puzzle.Content,
-		&puzzle.Width,
-		&puzzle.Height,
+		// &puzzle.Width,
+		// &puzzle.Height,
 		&puzzle.CreatedAt,
 		&puzzle.UpdatedAt,
 		&puzzle.Published,
@@ -117,8 +114,8 @@ func (m PuzzleModel) GetByID(id int) (*Puzzle, error) {
 func (m PuzzleModel) Update(puzzle *Puzzle) error {
 	query := `
 		UPDATE puzzles
-		SET title = $1, description = $2, content = $3, width = $4, height = $5, published = $6, updated_at = NOW(), version = version + 1
-		WHERE id = $7 AND version = $8
+		SET title = $1, description = $2, badword = $3, content = $4, published = $5, updated_at = NOW(), version = version + 1
+		WHERE id = $6 AND version = $7
 		RETURNING version, updated_at`
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -128,9 +125,8 @@ func (m PuzzleModel) Update(puzzle *Puzzle) error {
 		query,
 		puzzle.Title,
 		puzzle.Description,
+		puzzle.Badword,
 		puzzle.Content,
-		puzzle.Width,
-		puzzle.Height,
 		puzzle.Published,
 		puzzle.ID,
 		puzzle.Version,
@@ -168,7 +164,7 @@ func GetPublished(publishedVal string) (published1, published2 bool) {
 
 func (m PuzzleModel) List(published1, published2 bool, filters Filters) ([]*Puzzle, Metadata, error) {
 	query := `
-		SELECT count(*) OVER(), p.id, p.title, p.description, p.content, p.width, p.height, p.created_at, p.updated_at, p.published, p.version, u.id, u.full_name, u.display_name, u.email
+		SELECT count(*) OVER(), p.id, p.title, p.description, p.content, p.created_at, p.updated_at, p.published, p.version, u.id, u.full_name, u.display_name, u.email
 		FROM puzzles p
 		INNER JOIN users u ON p.author_id = u.id
 		WHERE p.published = $1 OR p.published = $2
@@ -193,8 +189,6 @@ func (m PuzzleModel) List(published1, published2 bool, filters Filters) ([]*Puzz
 			&puzzle.Title,
 			&puzzle.Description,
 			&puzzle.Content,
-			&puzzle.Width,
-			&puzzle.Height,
 			&puzzle.CreatedAt,
 			&puzzle.UpdatedAt,
 			&puzzle.Published,

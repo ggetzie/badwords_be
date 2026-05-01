@@ -4,6 +4,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/ggetzie/badwords_be/internal/data"
 	"github.com/ggetzie/badwords_be/internal/validator"
@@ -90,10 +91,9 @@ func (app *application) createPuzzleHandler(w http.ResponseWriter, r *http.Reque
 	var input struct {
 		Title       string          `json:"title"`
 		Description string          `json:"description"`
+		Badword     string          `json:"badword"`
 		Content     data.PuzzleData `json:"content"`
 		Published   bool            `json:"published"`
-		Width       int             `json:"width"`
-		Height      int             `json:"height"`
 	}
 
 	err := app.readJSON(w, r, &input)
@@ -104,12 +104,11 @@ func (app *application) createPuzzleHandler(w http.ResponseWriter, r *http.Reque
 	}
 	user := app.contextGetUser(r)
 	puzzle := &data.Puzzle{
-		Title:       input.Title,
-		Description: input.Description,
+		Title:       strings.Trim(input.Title, " "),
+		Description: strings.Trim(input.Description, " "),
 		Content:     input.Content,
+		Badword:     strings.ToUpper(strings.Trim(input.Badword, " ")),
 		Published:   input.Published,
-		Width:       input.Width,
-		Height:      input.Height,
 		Author:      *user,
 	}
 
@@ -157,9 +156,8 @@ func (app *application) updatePuzzleHandler(w http.ResponseWriter, r *http.Reque
 	var input struct {
 		Title       *string          `json:"title"`
 		Description *string          `json:"description"`
+		Badword     *string          `json:"badword"`
 		Content     *data.PuzzleData `json:"content"`
-		Width       *int             `json:"width"`
-		Height      *int             `json:"height"`
 		Published   *bool            `json:"published"`
 	}
 
@@ -170,22 +168,20 @@ func (app *application) updatePuzzleHandler(w http.ResponseWriter, r *http.Reque
 	}
 
 	if input.Title != nil {
-		puzzle.Title = *input.Title
+		puzzle.Title = strings.Trim(*input.Title, " ")
 	}
 	if input.Description != nil {
-		puzzle.Description = *input.Description
+		puzzle.Description = strings.Trim(*input.Description, " ")
 	}
 	if input.Content != nil {
 		puzzle.Content = *input.Content
 	}
+	if input.Badword != nil {
+		puzzle.Badword = strings.ToUpper(strings.Trim(*input.Badword, " "))
+
+	}
 	if input.Published != nil {
 		puzzle.Published = *input.Published
-	}
-	if input.Width != nil {
-		puzzle.Width = *input.Width
-	}
-	if input.Height != nil {
-		puzzle.Height = *input.Height
 	}
 	v := validator.New()
 	data.ValidatePuzzle(v, puzzle)
