@@ -13,7 +13,7 @@ import (
 	"github.com/ggetzie/badwords_be/internal/validator"
 )
 
-const STATIC_DIR = "/usr/local/src/badwords_be/static/"
+// const STATIC_DIR = "/usr/local/src/badwords_be/static/"
 
 func (app *application) listPuzzlesHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
@@ -252,6 +252,7 @@ func (app *application) uploadPuzzleImageHandler(w http.ResponseWriter, r *http.
 			app.notFoundResponse(w, r)
 		default:
 			app.serverErrorResponse(w, r, err)
+			app.logger.Error(fmt.Sprintf("Error fetching puzzle: %v", err))
 		}
 		return
 	}
@@ -272,6 +273,7 @@ func (app *application) uploadPuzzleImageHandler(w http.ResponseWriter, r *http.
 	fileBytes, err := io.ReadAll(file)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
+		app.logger.Error(fmt.Sprintf("Error reading uploaded file: %v", err))
 		return
 	}
 
@@ -291,15 +293,17 @@ func (app *application) uploadPuzzleImageHandler(w http.ResponseWriter, r *http.
 
 	// Save the image file to disk with a name based on the puzzle ID and original file extension
 	// e.g. static/123.png
-	err = os.WriteFile(fmt.Sprintf("%s%d%s", STATIC_DIR, puzzle.ID, ext), fileBytes, 0644)
+	err = os.WriteFile(fmt.Sprintf("%s/%d%s", app.config.mediaDir, puzzle.ID, ext), fileBytes, 0644)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
+		app.logger.Error(fmt.Sprintf("Error saving uploaded file: %v", err))
 		return
 	}
 
 	err = app.writeJSON(w, http.StatusOK, envelope{"message": "image saved"}, nil)
 	if err != nil {
 		app.serverErrorResponse(w, r, err)
+		app.logger.Error(fmt.Sprintf("Error writing JSON response: %v", err))
 		return
 	}
 
