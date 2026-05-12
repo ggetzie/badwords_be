@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 	"log/slog"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -18,6 +19,7 @@ type config struct {
 	env        string
 	db         data.DBConfig
 	webBaseURL string
+	mediaDir   string
 
 	limiter struct {
 		rps     float64
@@ -33,10 +35,11 @@ type config struct {
 }
 
 type application struct {
-	config config
-	logger *slog.Logger
-	models data.Models
-	wg     sync.WaitGroup
+	config      config
+	logger      *slog.Logger
+	models      data.Models
+	wg          sync.WaitGroup
+	mediaServer http.Handler
 }
 
 func main() {
@@ -69,6 +72,7 @@ func main() {
 
 	// Base URL - the hostname for the web frontend to build links
 	flag.StringVar(&cfg.webBaseURL, "base-url", "http://localhost:3001", "Base URL for the web frontend")
+	flag.StringVar(&cfg.mediaDir, "media-dir", "./media", "Directory to store uploaded media files")
 
 	flag.Parse()
 
@@ -95,9 +99,10 @@ func main() {
 	logger.Info("database connection pool established")
 
 	app := &application{
-		config: cfg,
-		logger: logger,
-		models: data.NewModels(dbpool),
+		config:      cfg,
+		logger:      logger,
+		models:      data.NewModels(dbpool),
+		mediaServer: http.FileServer(http.Dir(cfg.mediaDir)),
 	}
 
 	err = app.serve()

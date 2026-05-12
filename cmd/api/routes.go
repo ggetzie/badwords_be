@@ -18,6 +18,7 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/puzzles/:id", app.getPuzzleByIdHandler)
 	router.HandlerFunc(http.MethodPatch, "/v1/puzzles/:id", app.requirePermission(data.PuzzlesUpdate, app.updatePuzzleHandler))
 	router.HandlerFunc(http.MethodDelete, "/v1/puzzles/:id", app.requirePermission(data.PuzzlesDelete, app.deletePuzzleHandler))
+	router.HandlerFunc(http.MethodPost, "/v1/puzzles/:id/image", app.requirePermission(data.PuzzlesUpdate, app.uploadPuzzleImageHandler))
 
 	// User Routes
 	router.HandlerFunc(http.MethodGet, "/v1/user", app.requirePermission(data.UsersRead, app.getCurrentUserHandler))
@@ -28,6 +29,9 @@ func (app *application) routes() http.Handler {
 	// Authentication routes
 	router.HandlerFunc(http.MethodPost, "/v1/tokens/authentication", app.createAuthenticationTokenHandler)
 	router.HandlerFunc(http.MethodPost, "/v1/logout", app.logoutHandler)
+
+	// Uploaded media route
+	router.Handler(http.MethodGet, "/media/:filename", http.StripPrefix("/media/", app.mediaServer))
 
 	return app.recoverPanic(app.enableCORS(app.rateLimit(app.logRequest(app.authenticate(router)))))
 

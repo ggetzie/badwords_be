@@ -3,12 +3,17 @@ package main
 import (
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/ggetzie/badwords_be/internal/data"
 	"github.com/ggetzie/badwords_be/internal/validator"
 )
+
+const STATIC_DIR = "/usr/local/src/badwords_be/static/"
 
 func (app *application) listPuzzlesHandler(w http.ResponseWriter, r *http.Request) {
 	var input struct {
@@ -59,8 +64,8 @@ func (app *application) getPuzzleByIdHandler(w http.ResponseWriter, r *http.Requ
 
 	puzzle, err := app.models.Puzzles.GetByID(id)
 	if err != nil {
-		switch {
-		case err == data.ErrRecordNotFound:
+		switch err {
+		case data.ErrRecordNotFound:
 			app.notFoundResponse(w, r)
 		default:
 			app.serverErrorResponse(w, r, err)
@@ -88,6 +93,10 @@ func (app *application) getPuzzleByIdHandler(w http.ResponseWriter, r *http.Requ
 }
 
 func (app *application) createPuzzleHandler(w http.ResponseWriter, r *http.Request) {
+	if err := r.ParseMultipartForm(10 << 20); err != nil {
+		app.badRequestResponse(w, r, errors.New("the request body must be less than 10MB"))
+		return
+	}
 	var input struct {
 		Title       string          `json:"title"`
 		Description string          `json:"description"`
@@ -226,4 +235,72 @@ func (app *application) deletePuzzleHandler(w http.ResponseWriter, r *http.Reque
 		app.serverErrorResponse(w, r, err)
 		return
 	}
+}
+
+func (app *application) uploadPuzzleImageHandler(w http.ResponseWriter, r *http.Request) {
+	// save the card image for the puzzle
+	id, err := app.readIDParam(r)
+	if err != nil {
+		app.notFoundResponse(w, r)
+		return
+	}
+
+	puzzle, err := app.models.Puzzles.GetByID(id)
+	if err != nil {
+		switch err {
+		case data.ErrRecordNotFound:
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
+		return
+	}
+
+	err = r.ParseMultipartForm(10 << 20)
+	if err != nil {
+		app.badRequestResponse(w, r, errors.New("failed to parse multipart form"))
+		return
+	}
+
+	file, header, err := r.FormFile("image")
+	if err != nil {
+		app.badRequestResponse(w, r, errors.New("missing image file"))
+		return
+	}
+	defer file.Close()
+
+	fileBytes, err := io.ReadAll(file)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(header.Filename))
+	if ext == ".jpeg" {
+		ext = ".jpg"
+	}
+	if ext != ".jpg" && ext != ".png" && ext != ".gif" {
+		app.badRequestResponse(w, r, errors.New("the image file must be a .jpg, .png, or .gif"))
+		return
+	}
+
+	if !strings.HasPrefix(http.DetectContentType(fileBytes), "image/") {
+		app.badRequestResponse(w, r, errors.New("the uploaded file must be an image"))
+		return
+	}
+
+	// Save the image file to disk with a name based on the puzzle ID and original file extension
+	// e.g. static/123.png
+	err = os.WriteFile(fmt.Sprintf("%s%d%s", STATIC_DIR, puzzle.ID, ext), fileBytes, 0644)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	err = app.writeJSON(w, http.StatusOK, envelope{"message": "image saved"}, nil)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
 }
